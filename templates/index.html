@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block head %}
+    <title>Hoyolab 簽到圖形驗證設定</title>
+    <script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+
+    <style>
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f5f5f5;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container">
+        <h1>Hoyolab 簽到圖形驗證設定</h1>
+        <p>請解鎖底下圖形驗證：</p>
+        <div id="geetest"></div>
+        <div>
+            <p id="challenge"></p>
+            <p id="validate"></p>
+            <p id="seccode"></p>
+        </div>
+    </div>
+
+    <script>
+        function geetestCallback(captchaObj) {
+            captchaObj.appendTo("#geetest");
+            captchaObj.onReady(function(){
+
+            }).onSuccess(function(){
+                // 使用者解鎖圖形成功
+                let result = captchaObj.getValidate()
+                $("#challenge").text(`"challenge":"${result.geetest_challenge}"`);
+                $("#validate").text(`"validate":"${result.geetest_validate}"`);
+                $("#seccode").text(`"seccode":"${result.geetest_seccode}"`);
+                $.ajax({
+                    url: `/geetest/{{ game }}/{{ discord_id }}`,
+                    type: "POST",
+                    dataType: "text",
+                    contentType: "application/json",
+                    data: JSON.stringify(result),
+                    success: function(response) {
+                        let resultElement = $("<div>").addClass("result").text(response);
+                        $(".container").append(resultElement);
+                    },
+                    error: function(xhr, status, error) {
+                        console.log("Ajax Error: " + error);
+                    }
+                });
+            }).onError(function(error){
+                // 使用者解鎖圖形失敗
+                msg = {
+                    "code": error.code,
+                    "msg": error.msg
+                };
+                let resultElement = $("<div>").addClass("result").html(
+                    "發生錯誤：" + JSON.stringify(msg) + "<br>請回到機器人重新使用指令產生新的連結"
+                );
+                $(".container").append(resultElement);
+            })
+        };
+        initGeetest({
+            gt: "{{ gt }}",
+            challenge: "{{ challenge }}",
+            offline: false,
+            new_captcha: true,
+            lang: "zh-tw"
+        }, geetestCallback);
+    </script>
+{% endblock %}

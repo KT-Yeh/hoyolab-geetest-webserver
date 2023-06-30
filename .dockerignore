@@ -1,0 +1,10 @@
+Dockerfile
+*.pyc
+*.pyo
+*.pyd
+__pycache__
+.mypy_cache
+.git
+venv
+.venv
+/data
