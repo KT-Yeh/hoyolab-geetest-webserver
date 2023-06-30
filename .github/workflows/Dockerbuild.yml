@@ -1,0 +1,21 @@
+name: DockerBuild
+
+on:
+  push:
+    branches:
+      - "main"
+      - "develop"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  DockerBuild:
+    if: github.repository == 'KT-Yeh/hoyolab-geetest-webserver'
+    uses: ./.github/workflows/reusable_docker.yml
