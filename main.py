@@ -1,6 +1,8 @@
 import logging
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException, Request
+import genshin
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -31,29 +33,39 @@ async def read_root():
     return {"status": "ok"}
 
 
-async def check_user(discord_id: int) -> bool:
-    """Check if the user exists"""
-    user = await Database.select_one(User, User.discord_id.is_(discord_id))
-    return False if user is None else True
-
-
-@app.get("/geetest/{game}/{discord_id}/{gt}/{challenge}", response_class=HTMLResponse)
+@app.get("/geetest/{game}/{discord_id}", response_class=HTMLResponse)
 async def solve_geetest(
     request: Request,
-    game: Game,
+    game: Literal["genshin", "starrail_battlechronicle"],
     discord_id: int,
-    gt: str,
-    challenge: str,
+    gt: Annotated[str | None, Query(min_length=30)] = None,
+    challenge: Annotated[str | None, Query(min_length=30)] = None,
 ):
     """機器人產生連結請求本路徑，回傳解鎖圖形驗證的網頁"""
-    if (await check_user(discord_id)) is False:
+    user = await Database.select_one(User, User.discord_id.is_(discord_id))
+    if user is None:
         raise HTTPException(404, detail="使用者不存在資料庫內，請先設定 Cookie 註冊使用者")
-    if len(gt) < 30 or len(challenge) < 30:
-        raise HTTPException(404, detail="參數錯誤，請回到小幫手重新產生連結")
+    match game:
+        case "genshin":  # 原神簽到
+            pass
+        case "starrail_battlechronicle":  # 星穹鐵道戰績 API
+            cookie = user.cookie_starrail or user.cookie_default
+            client = genshin.Client(
+                cookie, lang="zh-tw", game=genshin.Game.STARRAIL, region=genshin.Region.OVERSEAS
+            )
+            try:
+                await client.get_starrail_notes()
+                raise HTTPException(404, detail="不需要圖形驗證！可以回到小幫手使用指令")
+            except genshin.errors.GeetestError:
+                mmt = await client.create_mmt()
+                gt = mmt.gt
+                challenge = mmt.challenge
+            except Exception as e:
+                raise HTTPException(404, detail=f"發生錯誤！錯誤內容：{e}")
 
     context = {
         "request": request,
-        "game": game.value,
+        "game": game,
         "discord_id": discord_id,
         "gt": gt,
         "challenge": challenge,
@@ -64,26 +76,43 @@ async def solve_geetest(
 
 @app.post("/geetest/{game}/{discord_id}", response_class=PlainTextResponse)
 async def save_geetest_result(
-    game: Game,
+    game: Literal["genshin", "starrail_battlechronicle"],
     discord_id: int,
     result: GeetestResult,
 ):
     """使用者通過圖形驗證後頁面請求本路徑，儲存結果資料"""
     logging.info(f"{type(discord_id)} {result.dict()}")
-    if (await check_user(discord_id)) is False:
-        raise HTTPException(404, detail="使用者不存在資料庫內，請先設定 Cookie 註冊使用者")
-
-    await Database.insert_or_replace(
-        GeetestChallenge(
-            discord_id,
-            genshin={
-                "challenge": result.geetest_challenge,
-                "validate": result.geetest_validate,
-                "seccode": result.geetest_seccode,
-            },
-        )
-    )
-    return "驗證結果已保存至資料庫！可以回到小幫手使用 /daily 指令簽到"
+    user = await Database.select_one(User, User.discord_id.is_(discord_id))
+    if user is None:
+        return "使用者不存在資料庫內，請先設定 Cookie 註冊使用者"
+    match game:
+        case "genshin":
+            await Database.insert_or_replace(
+                GeetestChallenge(
+                    discord_id,
+                    genshin={
+                        "challenge": result.geetest_challenge,
+                        "validate": result.geetest_validate,
+                        "seccode": result.geetest_seccode,
+                    },
+                )
+            )
+            return "驗證結果已保存至資料庫！可以回到小幫手使用 /daily 指令簽到"
+        case "starrail_battlechronicle":
+            cookie = user.cookie_starrail or user.cookie_default
+            client = genshin.Client(
+                cookie, lang="zh-tw", game=genshin.Game.STARRAIL, region=genshin.Region.OVERSEAS
+            )
+            mmt_result = genshin.models.auth.geetest.MMTResult(
+                geetest_challenge=result.geetest_challenge,
+                geetest_validate=result.geetest_validate,
+                geetest_seccode=result.geetest_seccode,
+            )
+            try:
+                await client.verify_mmt(mmt_result)
+                return "圖形驗證成功！可以回到小幫手繼續使用指令"
+            except Exception as e:
+                return f"發生錯誤！你可以嘗試重新整理網頁重試，錯誤內容：{e}"
 
 
 @app.exception_handler(StarletteHTTPException)

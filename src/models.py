@@ -15,6 +15,16 @@ class User(Base):
 
     discord_id: Mapped[int] = mapped_column(primary_key=True)
     """使用者 Discord ID"""
+    cookie_default: Mapped[str | None] = mapped_column(default=None)
+    """當特定遊戲的 cookie 未設定時，則使用此欄位的 cookie"""
+    cookie_genshin: Mapped[str | None] = mapped_column(default=None)
+    """用來給原神指令使用的 Hoyolab 或米游社網頁的 Cookie"""
+    cookie_honkai3rd: Mapped[str | None] = mapped_column(default=None)
+    """用來給崩壞3指令使用的 Hoyolab 或米游社網頁的 Cookie"""
+    cookie_starrail: Mapped[str | None] = mapped_column(default=None)
+    """用來給星穹鐵道指令使用的 Hoyolab 或米游社網頁的 Cookie"""
+    cookie_themis: Mapped[str | None] = mapped_column(default=None)
+    """用來給未定事件簿指令使用的 Hoyolab 或米游社網頁的 Cookie"""
 
 
 class GeetestChallenge(Base):
