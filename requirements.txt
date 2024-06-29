@@ -4,4 +4,5 @@ uvicorn[standard]~=0.22.0
 Jinja2~=3.1.2
 sqlalchemy~=2.0.17
 aiosqlite~=0.18
-genshin~=1.7.1
+genshin @ git+https://github.com/KT-Yeh/genshin.py.git@gdb#egg=genshin[socks-proxy]
+

@@ -5,6 +5,7 @@ WORKDIR /app
 COPY . .
 
 RUN set -xe; \
+    apt-get update && apt-get install -y git; \
     pip3 install --upgrade pip; \
     pip3 install -r requirements.txt
 

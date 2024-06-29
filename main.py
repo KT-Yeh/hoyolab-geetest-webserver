@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Annotated, Literal
 
 import genshin
@@ -51,7 +52,11 @@ async def solve_geetest(
         case "starrail_battlechronicle":  # 星穹鐵道戰績 API
             cookie = user.cookie_starrail or user.cookie_default
             client = genshin.Client(
-                cookie, lang="zh-tw", game=genshin.Game.STARRAIL, region=genshin.Region.OVERSEAS
+                cookie,
+                lang="zh-tw",
+                game=genshin.Game.STARRAIL,
+                region=genshin.Region.OVERSEAS,
+                proxy=os.getenv("PROXY_SERVER"),
             )
             try:
                 await client.get_starrail_notes()
@@ -101,7 +106,11 @@ async def save_geetest_result(
         case "starrail_battlechronicle":
             cookie = user.cookie_starrail or user.cookie_default
             client = genshin.Client(
-                cookie, lang="zh-tw", game=genshin.Game.STARRAIL, region=genshin.Region.OVERSEAS
+                cookie,
+                lang="zh-tw",
+                game=genshin.Game.STARRAIL,
+                region=genshin.Region.OVERSEAS,
+                proxy=os.getenv("PROXY_SERVER"),
             )
             mmt_result = genshin.models.auth.geetest.MMTResult(
                 geetest_challenge=result.geetest_challenge,
